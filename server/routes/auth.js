@@ -29,25 +29,31 @@ router.post('/register', async (req, res) => {
 });
 
 // LOGIN USER
-router.post('/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-        // Find user by email
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ message: "Invalid credentials" });
-
-        // Compare passwords
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
-        // Generate a JWT token
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-        res.status(200).json({ token, user: { id: user._id, username: user.username, email: user.email, profileImage: user.profileImage } });
-    } catch (err) {
-        res.status(500).json({ message: "Server error", error: err.message });
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
     }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // Generate a JWT token
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.status(200).json({ token, user });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 });
 
 export default router;

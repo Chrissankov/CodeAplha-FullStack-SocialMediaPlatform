@@ -11,10 +11,39 @@ const AuthForm = ({ isSignUp, onLogin }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-    onLogin();
+
+    const url = isSignUp
+      ? "http://localhost:5000/api/auth/register"
+      : "http://localhost:5000/api/auth/login";
+    const body = isSignUp
+      ? {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+        }
+      : { email: formData.email, password: formData.password };
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Something went wrong");
+      }
+
+      console.log("Success:", data);
+      onLogin(data.token, data.user); // Pass the token and user data to the parent component
+    } catch (error) {
+      console.error("Error:", error.message);
+      alert(error.message); // Show error message to the user
+    }
   };
 
   return (

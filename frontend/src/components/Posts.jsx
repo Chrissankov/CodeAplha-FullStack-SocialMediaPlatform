@@ -1,115 +1,142 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "../styles/Posts.css";
+import defaultAvatar from "../assets/default-avatar.png";
 
-function Posts() {
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      username: "john_doe",
-      userImg: "https://randomuser.me/api/portraits/men/1.jpg",
-      postImg: "https://picsum.photos/seed/post1/400/300",
-      caption: "Playing!",
-      likes: 12,
-      comments: ["Nice shot!"],
-      newComment: "",
-    },
-    {
-      id: 2,
-      username: "jane_smith",
-      userImg: "https://randomuser.me/api/portraits/women/2.jpg",
-      postImg: "https://picsum.photos/seed/post2/400/300",
-      caption: ":)",
-      likes: 45,
-      comments: ["Looks so relaxing!", "Wow 😍"],
-      newComment: "",
-    },
-  ]);
-
-  const [newPostImg, setNewPostImg] = useState("");
+function Posts({ token }) {
+  const [posts, setPosts] = useState([]);
   const [newCaption, setNewCaption] = useState("");
-  const [imageFile, setImageFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [commentInputs, setCommentInputs] = useState({}); // Stores comment input for each post
 
-  function handleFileChange(event) {
-    const file = event.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setNewPostImg("");
-    }
-  }
+  // Fetch posts from the backend
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch("http://localhost:5000/api/posts", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-  function handleAddPost() {
-    if (!newPostImg.trim() && !imageFile) return;
+        if (!response.ok) {
+          throw new Error("Failed to fetch posts");
+        }
 
-    const newPost = {
-      id: Date.now(),
-      username: "your_username",
-      userImg: "https://randomuser.me/api/portraits/men/10.jpg",
-      postImg: imageFile ? URL.createObjectURL(imageFile) : newPostImg,
-      caption: newCaption,
-      likes: 0,
-      comments: [],
-      newComment: "",
+        const data = await response.json();
+        setPosts(data);
+      } catch (error) {
+        console.error("Error fetching posts:", error.message);
+        alert("Failed to fetch posts. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setPosts((prevPosts) => [newPost, ...prevPosts]); // Prepend new post to the top
-    setNewPostImg("");
-    setNewCaption("");
-    setImageFile(null);
-  }
+    fetchPosts();
+  }, [token]);
 
-  function handleLike(postId) {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId ? { ...post, likes: post.likes + 1 } : post
-      )
-    );
-  }
+  // Add a new post
+  const handleAddPost = async () => {
+    if (!newCaption.trim()) {
+      alert("Please write something to post");
+      return;
+    }
 
-  function handleComment(postId, e) {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId ? { ...post, newComment: e.target.value } : post
-      )
-    );
-  }
+    try {
+      const response = await fetch("http://localhost:5000/api/posts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ caption: newCaption, user: token }),
+      });
 
-  function addComment(postId) {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              comments: [...post.comments, post.newComment],
-              newComment: "",
-            }
-          : post
-      )
-    );
-  }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create post");
+      }
+
+      const newPost = await response.json();
+      setPosts((prevPosts) => [newPost, ...prevPosts]);
+      setNewCaption("");
+    } catch (error) {
+      console.error("Error creating post:", error.message);
+      alert("Failed to create post. Please try again.");
+    }
+  };
+
+  // Handle like button click
+  const handleLike = async (postId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/posts/${postId}/like`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to like post");
+      }
+
+      const updatedPost = await response.json();
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => (post._id === postId ? updatedPost : post))
+      );
+    } catch (error) {
+      console.error("Error liking post:", error.message);
+      alert("Failed to like post. Please try again.");
+    }
+  };
+
+  // Handle comment button click
+  const handleComment = async (postId) => {
+    const comment = commentInputs[postId];
+    if (!comment?.trim()) {
+      alert("Please enter a comment");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/posts/${postId}/comment`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: comment }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to add comment");
+      }
+
+      const updatedPost = await response.json();
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => (post._id === postId ? updatedPost : post))
+      );
+      setCommentInputs((prev) => ({ ...prev, [postId]: "" })); // Clear comment input
+    } catch (error) {
+      console.error("Error adding comment:", error.message);
+      alert("Failed to add comment. Please try again.");
+    }
+  };
 
   return (
     <div className="posts-container">
       <div className="new-post">
         <input
           type="text"
-          placeholder="Image URL..."
-          value={newPostImg}
-          onChange={(e) => {
-            setNewPostImg(e.target.value);
-            setImageFile(null);
-          }}
-          className="new-post-input"
-        />
-        <span style={{ textAlign: "center" }}>or</span>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="new-post-input"
-        />
-        <input
-          type="text"
-          placeholder="Caption..."
+          placeholder="Write here..."
           value={newCaption}
           onChange={(e) => setNewCaption(e.target.value)}
           className="new-post-input"
@@ -119,47 +146,66 @@ function Posts() {
         </button>
       </div>
 
-      {posts.map((post) => (
-        <div key={post.id} className="post">
-          <div className="post-header">
-            <img src={post.userImg} alt={post.username} className="user-img" />
-            <span className="username">{post.username}</span>
-          </div>
-          <img src={post.postImg} alt="Post" className="post-img" />
-          <div className="post-details">
-            <p className="caption">{post.caption}</p>
-            <div className="post-actions">
-              <span onClick={() => handleLike(post.id)}>❤️ {post.likes}</span>
-              <span>💬 {post.comments.length}</span>
+      {loading ? (
+        <p>Loading posts...</p>
+      ) : posts.length > 0 ? (
+        posts.map((post) => (
+          <div key={post._id} className="post">
+            <div className="post-header">
+              <img
+                src={post.userId?.profilePicture || defaultAvatar}
+                alt={post.userId?.username || "User"}
+                className="user-img"
+              />
+              <span className="username">
+                {post.user?.username || "Unknown"}
+              </span>
             </div>
-
-            <div className="comments-section">
-              <div className="comments-list">
-                {post.comments.map((comment, index) => (
-                  <p key={index} className="comment">
-                    {comment}
-                  </p>
-                ))}
+            <div className="post-details">
+              <p className="caption">{post.caption}</p>
+              <div className="post-actions">
+                <span onClick={() => handleLike(post._id)}>
+                  ❤️ {post.likes?.length || 0}
+                </span>
+                <span>💬 {post.comments?.length || 0}</span>
               </div>
-              <div className="comment-input-container">
-                <input
-                  type="text"
-                  placeholder="Add a comment..."
-                  value={post.newComment}
-                  onChange={(e) => handleComment(post.id, e)}
-                  className="comment-input"
-                />
-                <button
-                  onClick={() => addComment(post.id)}
-                  className="comment-btn"
-                >
-                  Post
-                </button>
+              {/* Always show comments section */}
+              <div className="comments-section">
+                <div className="comments-list">
+                  {post.comments?.map((comment, index) => (
+                    <div key={index} className="comment">
+                      <strong>{comment.user?.username || "Unknown"}:</strong>{" "}
+                      {comment.comment}
+                    </div>
+                  ))}
+                </div>
+                <div className="comment-input-container">
+                  <input
+                    type="text"
+                    placeholder="Add a comment..."
+                    value={commentInputs[post._id] || ""}
+                    onChange={(e) =>
+                      setCommentInputs((prev) => ({
+                        ...prev,
+                        [post._id]: e.target.value,
+                      }))
+                    }
+                    className="comment-input"
+                  />
+                  <button
+                    onClick={() => handleComment(post._id)}
+                    className="comment-btn"
+                  >
+                    Post
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))
+      ) : (
+        <p>No posts available</p>
+      )}
     </div>
   );
 }

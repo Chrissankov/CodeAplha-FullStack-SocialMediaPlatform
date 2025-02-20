@@ -3,7 +3,7 @@ import "../styles/Navbar.css";
 import postifyLogo from "../assets/postify-logo.png";
 import defaultAvatar from "../assets/default-avatar.png";
 
-function Navbar({ onLogout, username, followers, following, profileImage }) {
+function Navbar({ onLogout, user }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const toggleProfile = () => {
@@ -22,17 +22,13 @@ function Navbar({ onLogout, username, followers, following, profileImage }) {
         </button>
         {isProfileOpen && (
           <div className="profile-info">
-            <img
-              className="profile-img"
-              alt="Profile"
-              src={profileImage || defaultAvatar}
-            />
-            <p className="profile-username">{username}</p>
+            <img className="profile-img" alt="Profile" src={defaultAvatar} />
+            <p className="profile-username">{user?.username}</p>
             <p className="profile-followers">
-              <strong>Followers:</strong> {followers}
+              <strong>Followers:</strong> {user?.followers?.length || 0}
             </p>
             <p className="profile-following">
-              <strong>Following:</strong> {following}
+              <strong>Following:</strong> {user?.following?.length || 0}
             </p>
           </div>
         )}

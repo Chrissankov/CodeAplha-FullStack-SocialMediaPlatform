@@ -1,16 +1,19 @@
 import jwt from "jsonwebtoken";
 
 const authMiddleware = (req, res, next) => {
-    const token = req.header("Authorization")?.split(" ")[1]; // Remove "Bearer"
-    if (!token) return res.status(401).json({ message: "Access Denied" });
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from header
 
-    try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = verified; // { userId: "67b508ad05c2370f15b62b71" }
-        next();
-    } catch (error) {
-        res.status(403).json({ message: "Invalid Token" });
-    }
+  if (!token) {
+    return res.status(403).json({ message: "No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify token
+    req.user = { userId: decoded.userId }; // Attach userId to req.user
+    next(); // Pass control to the next middleware/route handler
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 };
 
 export default authMiddleware;
